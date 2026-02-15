@@ -1,18 +1,14 @@
-//#include "utils/dotenv.hpp"
+#include "utils/dotenv.hpp"
+#include "auth/auth.hpp"
 #include <iostream>
+#include <unordered_map>
 
 using namespace std;
 
 
 int main(){
-    /*
+    
     unordered_map<string, string> env = getenv();
-    for(auto i = env.begin(); i != env.end(); i ++){
-        cout << i->first << " --> " << i->second << endl;
-    }
-        */
-
-    cout << "wbgb" << endl;
-
+    
     return 0;
 }

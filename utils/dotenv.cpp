@@ -7,15 +7,17 @@ using namespace std;
 
 //Very basic .env reader for non-problematic env formats
 unordered_map<string, string> getenv(){
+    cout << "Reading env..." << endl;
     string ln;
     unordered_map<string, string> env;
     
-    ifstream readEnvF("filename.txt");
+    ifstream readEnvF(".env");
 
     while (getline(readEnvF, ln)) {
         int idx = ln.find("=");
         string k = ln.substr(0, idx);
-        string v = ln.substr(idx, ln.length());
+        cout << "Found " << k << " in .env" << endl;
+        string v = ln.substr(idx + 1, ln.length());
         env[k] = v;
     }
 
