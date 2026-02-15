@@ -46,14 +46,4 @@ pair<bool, json> get_access_token(string client_id, string client_secret, string
 
 }
 
-int main(){
-
-    string CLIENT_ID = "VsDrlW828FSwBH6WOFj5L8eutFdc6c1u";
-    string CLIENT_SECRET = "CAGzKx2SO9dWbGgaD1NfBG3xWnfeVYZYffwaAHGcBu-UaF6Vruv4MbMZuylTVTTL";
-    string REFRESH_TOKEN = "tXtK9bsy68j9DrCiqn2a-VAp6TaRiTadzOw1SJMw4adIz";
-    pair<bool, json> j = get_access_token(CLIENT_ID, CLIENT_SECRET, REFRESH_TOKEN);
-    cout << j.second["access_token"];
-
-    return 0;
-}
 
