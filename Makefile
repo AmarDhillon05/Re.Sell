@@ -32,4 +32,4 @@ dotenv.o: utils/dotenv.cpp
 
 
 clean:
-	rm -f $(OBJS) $(TARGET)
+	rm -f $(OBJS) $(TARGET) auth_dbug

@@ -7,9 +7,11 @@
 
 using namespace httplib;
 using namespace std;
+using json = nlohmann::json;
+
 
 //Refreshes + retreives access token 
-string get_access_token(string client_id, string client_secret, string refresh_token){
+pair<bool, json> get_access_token(string client_id, string client_secret, string refresh_token){
 
     SSLClient cli("accounts.stockx.com", 443);
     cli.enable_server_certificate_verification(true);
@@ -23,18 +25,24 @@ string get_access_token(string client_id, string client_secret, string refresh_t
     params.emplace("refresh_token", refresh_token);
 
     Headers headers = {
-        { "Content-Type", "application/x-www-form-urlencoded" }
+        {"Accept", "application/json"}
     };
 
     auto res = cli.Post("/oauth/token", headers, params);
 
-    if (res) {
-        std::cout << "Status: " << res->status << "\n";
-        std::cout << "Body: " << res->body << "\n";
+    if(res){
+        if(res->status != 200){
+            cout << "Retreiving access token failed with status " << res->status << endl;
+            return make_pair(false, json::object());
+        }
+
+        json body = json::parse(res->body);
+        return make_pair(true, body);
+
     } else {
-        std::cerr << "Error: " << res.error() << "\n";
+        cout << "Error in retreiving access token" << res.error() << endl;
+        return make_pair(false, json::object());
     }
-    return "";
 
 }
 
@@ -43,7 +51,8 @@ int main(){
     string CLIENT_ID = "VsDrlW828FSwBH6WOFj5L8eutFdc6c1u";
     string CLIENT_SECRET = "CAGzKx2SO9dWbGgaD1NfBG3xWnfeVYZYffwaAHGcBu-UaF6Vruv4MbMZuylTVTTL";
     string REFRESH_TOKEN = "tXtK9bsy68j9DrCiqn2a-VAp6TaRiTadzOw1SJMw4adIz";
-    cout << get_access_token(CLIENT_ID, CLIENT_SECRET, REFRESH_TOKEN);
+    pair<bool, json> j = get_access_token(CLIENT_ID, CLIENT_SECRET, REFRESH_TOKEN);
+    cout << j.second["access_token"];
 
     return 0;
 }
