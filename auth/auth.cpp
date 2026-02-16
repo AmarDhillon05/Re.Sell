@@ -10,8 +10,8 @@ using namespace std;
 using json = nlohmann::json;
 
 
-//Refreshes + retreives access token 
-pair<bool, json> get_access_token(string client_id, string client_secret, string refresh_token){
+//Refreshes + retreives access token (stockx)
+pair<bool, json> get_stockx_access_token(string client_id, string client_secret, string refresh_token){
 
     SSLClient cli("accounts.stockx.com", 443);
     cli.enable_server_certificate_verification(true);

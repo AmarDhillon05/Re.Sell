@@ -2,7 +2,7 @@ CXX = g++
 CXXFLAGS = -std=c++17 -Iinclude -I.
 LDFLAGS = -lssl -lcrypto -pthread
 
-SRCS = main.cpp auth/auth.cpp utils/dotenv.cpp
+SRCS = main.cpp auth/auth.cpp utils/dotenv.cpp clients/kicksdb_client.cpp
 OBJS = $(SRCS:.cpp=.o)
 
 TARGET = main
@@ -23,6 +23,9 @@ auth.o: auth/auth.cpp utils/dotenv.hpp include/cpp-httplib/httplib.h include/nlo
 
 auth_dbug: auth/auth.cpp utils/dotenv.hpp include/cpp-httplib/httplib.h include/nlohmann/json.hpp
 	$(CXX) $(CXXFLAGS) -g auth/auth.cpp -o $@ $(LDFLAGS) -g
+
+kicksdb_dbug: clients/kicksdb_client.cpp clients/kicksdb_client.hpp utils/dotenv.hpp include/cpp-httplib/httplib.h include/nlohmann/json.hpp
+	$(CXX) $(CXXFLAGS) -g clients/kicksdb_client.cpp utils/dotenv.cpp -o $@ $(LDFLAGS) -g
 	
 
 
