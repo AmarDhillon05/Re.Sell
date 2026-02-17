@@ -87,12 +87,3 @@ pair<bool, json> KicksDB_Client::get_history(string id) const{
 }
 
 
-
-int main(){
-
-    KicksDB_Client cli;
-    pair<bool, json> s = cli.search("Air Jordan 1");
-    cout << s.second.dump(2) << endl;
-
-    return 0;
-}
