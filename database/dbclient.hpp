@@ -1,6 +1,8 @@
 #include <iostream>
 #include <fstream>
 #include <cstdint>
+#include <cstring>
+#include <algorithm>
 
 using namespace std;
 
@@ -9,15 +11,16 @@ using namespace std;
 
 
 //Struct for storing data
-struct Items {
+struct Item {
     char title[128]; //No data as of data
-    uint32_t lpointer; //Less than page redir
+    int32_t lpointer; //Less than page redir
 };
 
 struct Page {
     uint16_t nentries;
-    Items entries[3];
+    Item entries[3];
     int32_t rpointer; //Greater than page redir
+    int32_t ppointer; //Parent
 };
 
 
