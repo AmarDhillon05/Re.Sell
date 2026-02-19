@@ -19,95 +19,57 @@ DBClient::DBClient(){
 
 
 
-int DBClient::insert(Item item){
-    fstream file("shoe.db", ios::binary | ios::out | ios::in);
+//Straight file read methods for debugging
+void DBClient::raw_insert(Page page){
+    fstream file("shoe.db", ios::binary | ios::out);
+    file.seekg(npages*pgSize, ios::beg);
 
-    //Locate proper location to add into
-    //Items within should already be presorted
-    int currPg = rootPg;
-    Page page;
+    file.write(reinterpret_cast<char*>(&page), pgSize);
+    npages += 1;
 
-    while(true){
-        file.seekp(currPg*pgSize, ios::beg);
-        file.write(reinterpret_cast<char*>(&page), pgSize);
-        if(page.nentries == pageMaxOcc){
-            //Go right if applicable
-            Item maxItem = page.entries[pageMaxOcc - 1];
-            if(strcmp(item.title, maxItem.title) > 0){
-                if(page.rpointer != -1){
-                    currPg = page.rpointer;
-                }
-                else{
-                    break
-                }
-            }
-            //Find proper entry (if it exists)
-            else{
-                for(Item entryItem : page.entries){
-                    if(strcmp(item.title, entryItem.title) < 0){
-                        if(entryItem.lpointer != -1){
-                            currPg = page.lpointer;
-                        }
-                        else{
-                            break;
-                        }
-                    }
-                }
-            }
-           
-        }
-        else{
-            break;
-        }
-    }
-
-    //Either add or split + loop on precursor
-    //make a complete sorted list -> make splits if needed, -> sift up
-
-    //Find insertion
-    int insertIdx = 0;
-    for(int i = 0; i < page.nentries; i ++){
-        if(strcmp(item.title, page.nentries[i].title) < 0){
-            insertIdx = i; 
-            break;
-        }
-    }
-
-    //If we have space, insert and done 
-    if(page.nentries < pageMaxOcc){
-        page.nentries += 1;
-        for(int i = page.nentries - 1; i >= insertIdx; i++){
-            page.nentries[i + 1] = page.nentries[i];
-        }
-        memcpy(&page[insertIdx], &item, sizeof(Item));
-        return 0; 
-        //TODO -> look at readjusting pointers
-    }
-
-
-    //Case where theres an overflow -> BIG TODO
-    
-
-    
     file.close();
-
-    return 0;
 }
+
+
+void DBClient::raw_page_print(){
+    fstream file("shoe.db", ios::binary | ios::in);
+    Page page;
+    for(int i = 0; i < npages; i ++){
+        file.seekp(i*pgSize, ios::beg);
+        file.read(reinterpret_cast<char*>(&page), pgSize);
+
+        cout << "Page " << i << endl;
+        for(int n = 0; n < page.nentries; n ++){
+            cout << "Entry " << n << ": " << page.entries[n].title << endl;
+        }
+        cout << "Parent page: " << page.parent_page << endl;
+    }
+}
+
+void DBClient::raw_clear(){
+    fstream file("shoe.db", ios::out | ios::trunc);
+    file.close();
+}
+
+
 
 
 int main(){
     DBClient cli;
+    cli.raw_clear();
 
-    /*
     Page p1 = {};
     p1.nentries = 2;
-    p1.rpointer = -1; //Signifies DNE
-    p1.ppointer = -1; //Signifies this is root
-    p1.entries[0] = {"a", -1};
-    p1.entries[1] = {"b", -1};
-    */
+    for(int i = 0; i < 4; i ++){
+        p1.child_pages[i] = -1;
+    }
+    p1.entries[0] = {"a"};
+    p1.entries[1] = {"b"};
+    p1.parent_page = -1;
+    
 
-    int _ = cli.insert();
+    cli.raw_insert(p1);
+    cli.raw_page_print();
 
 
     return 0;

@@ -12,15 +12,14 @@ using namespace std;
 
 //Struct for storing data
 struct Item {
-    char title[128]; //No data as of data
-    int32_t lpointer; //Less than page redir
+    char title[128]; //No data as of now
 };
 
 struct Page {
     uint16_t nentries;
     Item entries[3];
-    int32_t rpointer; //Greater than page redir
-    int32_t ppointer; //Parent
+    int16_t child_pages[4];
+    int16_t parent_page;
 };
 
 
@@ -40,8 +39,11 @@ class DBClient{
 
         DBClient();
 
-        int search(string query) const;
-        int insert(Page query);
+        Item search(string query) const;
+        void insert(Page query);
+        void raw_clear();
+        void raw_insert(Page page);
+        void raw_page_print();
 
 };
 
