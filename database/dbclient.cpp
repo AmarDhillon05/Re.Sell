@@ -9,15 +9,16 @@ using namespace std;
 
 //Helper method to insert (guarenteed valid indices by dbhandler)
 void insert(void* arr, void* item, size_t item_size, int idx, int arrsize) {
-
     char* base = static_cast<char*>(arr);
 
-    memmove(
-        base + (idx + 1) * item_size,
-        base + idx * item_size,
-        (arrsize - idx) * item_size
-    );
-
+    //Move if we have to 
+    if(arrsize > idx){
+        memmove(
+            base + (idx + 1) * item_size,
+            base + idx * item_size,
+            (arrsize - idx) * item_size
+        );
+    }
     memcpy(
         base + idx * item_size,
         item,
@@ -51,9 +52,14 @@ void DBClient::raw_insert(Page page){
 void DBClient::raw_page_print(){
     fstream file("shoe.db", ios::binary | ios::in);
     Page page;
+
+    cout << "Root = " << rootPg << endl;
     for(int i = 0; i < npages; i ++){
         file.seekp(i*pgSize, ios::beg);
         file.read(reinterpret_cast<char*>(&page), pgSize);
+
+        for(int i = 0; i < 50; i ++){ cout << "-"; }
+        cout << endl;
 
         cout << "Page " << i << endl;
         cout << "Nentries: " << page.nentries << endl;
@@ -61,7 +67,12 @@ void DBClient::raw_page_print(){
             cout << "Entry " << n << ": " << page.entries[n].title << endl;
         }
         cout << "Parent page: " << page.parent_page << endl;
+        
     }
+
+    for(int i = 0; i < 50; i ++){ cout << "-"; }
+    cout << endl;
+
 }
 
 void DBClient::raw_clear(){
@@ -157,6 +168,7 @@ void DBClient::insert(Item i){
             }
             new_left.parent_page = page.parent_page;
 
+
             //Insert into left if it fits
             if(idx < new_left.nentries){
                 ::insert(new_left.entries, &to_insert, sizeof(Item), idx, new_left.nentries);
@@ -166,7 +178,7 @@ void DBClient::insert(Item i){
             //Write left
             npages += 1;
             file.seekp(npages * pgSize, ios::beg);
-            file.write(reinterpret_cast<char*>(&page), pgSize);
+            file.write(reinterpret_cast<char*>(&new_left), pgSize);
 
             //Move elements in the right
             for(int x = new_left.nentries; x < page.nentries; x ++){
@@ -175,20 +187,18 @@ void DBClient::insert(Item i){
             for(int x = new_left.nentries + 1; x < page.nentries + 1; x ++){
                 page.child_pages[x - new_left.nentries - 1] = page.child_pages[x];
             }
+
             page.nentries = page.nentries - new_left.nentries;
 
             //Insert into the right if needed
             if(idx > new_left.nentries){
                 idx -= new_left.nentries;
+                //cout << "Inserting at " << idx << endl;
                 ::insert(page.entries, &to_insert, sizeof(Item), idx, new_left.nentries);
                 ::insert(new_left.child_pages, &new_page, sizeof(int16_t), idx, new_left.nentries + 1);
             }
 
-            cout << "File good: " << file.is_open() << endl;
-            cout << "Page dot entries: " << page.entries << endl;
-
             //(Re)Write right and update loop vars
-            cout << "Writing @ " << currPg << ", pgSize = " << pgSize << endl;
             file.seekp(currPg * pgSize, ios::beg);
             file.write(reinterpret_cast<char*>(&page), pgSize);
 
