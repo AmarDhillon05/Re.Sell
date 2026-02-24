@@ -112,22 +112,39 @@ void DBClient::insert(Item i){
     //cout << "Writing to " << currPg << "\n";
 
     //Recursively split, create new right node, pass up middle node
+
     int16_t new_page = -1;
+    int16_t child_pref = -1; //In case we need to modify two children
+    //TODO: Add an argument for inserting another page
     Item to_insert = i;
     Page page;
 
     while(true){
 
-        //if currPg DNE, make a new root
+        //if currPg DNE, make a new root + 
         if(currPg == -1){
             Page p;
-            p.nentries = 0;
+            p.nentries = 1;
             npages += 1;
-            currPg = npages;
-            rootPg = npages;
+            currPg = npages - 1; //Must check this indent 
+            rootPg = npages - 1;
 
             file.seekp(currPg * pgSize, ios::beg);
             file.write(reinterpret_cast<char*>(&p), pgSize);
+
+            //Also, rewrite ref of previous files
+            int16_t ptochange[2] = { new_page, child_pref };
+            for(int16_t pnum : ptochange){
+                if(pnum > -1){
+                    Page ptemp;
+                    file.seekg(pnum * pgSize, ios::beg);
+                    file.read(reinterpret_cast<char*>(&ptemp), pgSize);
+                    ptemp.parent_page = currPg;
+                    file.seekp(pnum * pgSize, ios::beg);
+                    file.write(reinterpret_cast<char*>(&ptemp), pgSize);
+                }
+            }
+
         }
 
         file.seekg(currPg * pgSize, ios::beg);
@@ -143,7 +160,6 @@ void DBClient::insert(Item i){
         //PLain insert if there's room
         if(page.nentries < pageMaxOcc){
 
-            //TODO: write this method
             ::insert(page.entries, &to_insert, sizeof(Item), idx, page.nentries);
             ::insert(page.child_pages, &new_page, sizeof(int16_t), idx, page.nentries + 1);
             page.nentries += 1;
@@ -202,6 +218,7 @@ void DBClient::insert(Item i){
             file.seekp(currPg * pgSize, ios::beg);
             file.write(reinterpret_cast<char*>(&page), pgSize);
 
+            child_pref = currPg; //For changing ref if needed
             currPg = page.parent_page;
             new_page = npages;
         }

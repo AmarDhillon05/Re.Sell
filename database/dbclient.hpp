@@ -32,6 +32,11 @@ void print_page(Page page){
         cout << "Entry " << n << ": " << page.entries[n].title << endl;
     }
     cout << "Parent page: " << page.parent_page << endl;
+    cout << "Children: ";
+    for(int n = 0; n < page.nentries + 1; n ++){
+        cout << page.child_pages[n] << ", ";
+    }
+    cout << endl;
 
     for(int i = 0; i < 50; i ++){ cout << "*"; }
 
