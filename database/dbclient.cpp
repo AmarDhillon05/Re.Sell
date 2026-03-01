@@ -28,10 +28,10 @@ void insert(void* arr, void* item, size_t item_size, int idx, int arrsize) {
 
 //Implementd DBC methods
 DBClient::DBClient(){
-    npages = 0;
+    npages = 0; //This minus 1 = pointer to the most recent page 
     pageMinOcc = 1;
     pageMaxOcc = 3;
-    rootPg = 0;
+    rootPg = -1; //DNE
     pgSize = sizeof(Page); 
 }
 
@@ -53,7 +53,8 @@ void DBClient::raw_page_print(){
     fstream file("shoe.db", ios::binary | ios::in);
     Page page;
 
-    cout << "Root = " << rootPg << endl;
+    cout << "\n\nRoot = " << rootPg << endl;
+    cout << "NPages = " << npages << endl;
     for(int i = 0; i < npages; i ++){
         file.seekp(i*pgSize, ios::beg);
         file.read(reinterpret_cast<char*>(&page), pgSize);
@@ -67,6 +68,11 @@ void DBClient::raw_page_print(){
             cout << "Entry " << n << ": " << page.entries[n].title << endl;
         }
         cout << "Parent page: " << page.parent_page << endl;
+        cout << "Child pages: ";
+        for(int i = 0; i < page.nentries + 1; i ++){
+            cout << page.child_pages[i] << ", ";
+        }
+        cout << endl;
         
     }
 
@@ -84,12 +90,13 @@ void DBClient::raw_clear(){
 //B-tree item insert
 void DBClient::insert(Item i){
 
-    //Locate item + its parent if needed
-    int currPg = rootPg;
 
     fstream file("shoe.db", ios::binary | ios::in | ios::out);
 
-    while(true){
+    int16_t currPg = rootPg;
+
+    //Search for correct node
+    while(currPg != -1){
         Page page;
         file.seekg(currPg * pgSize, ios::beg);
         file.read(reinterpret_cast<char*>(&page), pgSize);
@@ -104,127 +111,147 @@ void DBClient::insert(Item i){
                 }
             }
         }
-
+        
         if(atLeaf){ break; } //All should break at leaf
         currPg = page.child_pages[page.nentries];
     }
+    
 
-    //cout << "Writing to " << currPg << "\n";
+    //These vars should guarentee order (left stays the same, right is new)
+    int16_t newleft = -1;
+    int16_t newright = -1;
+    int16_t page_toadd = currPg;
+    Item toinsert = i;
 
-    //Recursively split, create new right node, pass up middle node
-
-    int16_t new_page = -1;
-    int16_t child_pref = -1; //In case we need to modify two children
-    //TODO: Add an argument for inserting another page
-    Item to_insert = i;
-    Page page;
-
-    while(true){
-
-        //if currPg DNE, make a new root + 
-        if(currPg == -1){
+    //New root case: Add the new root + new pages raw and rewrite parents of previous, then return
+    while(1){
+        if(page_toadd == -1){
+        
             Page p;
             p.nentries = 1;
-            npages += 1;
-            currPg = npages - 1; //Must check this indent 
-            rootPg = npages - 1;
+            p.entries[0] = toinsert;
+            p.child_pages[0] = newleft;
+            p.child_pages[1] = newright;
+            p.parent_page = -1;
 
-            file.seekp(currPg * pgSize, ios::beg);
-            file.write(reinterpret_cast<char*>(&p), pgSize);
-
-            //Also, rewrite ref of previous files
-            int16_t ptochange[2] = { new_page, child_pref };
-            for(int16_t pnum : ptochange){
-                if(pnum > -1){
-                    Page ptemp;
-                    file.seekg(pnum * pgSize, ios::beg);
-                    file.read(reinterpret_cast<char*>(&ptemp), pgSize);
-                    ptemp.parent_page = currPg;
-                    file.seekp(pnum * pgSize, ios::beg);
-                    file.write(reinterpret_cast<char*>(&ptemp), pgSize);
+            int16_t children[2] = {newleft, newright};
+            for(int16_t idx : children){
+                if(idx != -1){
+                    Page child;
+                    file.seekg(idx * pgSize, ios::beg);
+                    file.read(reinterpret_cast<char*>(&child), pgSize);
+                    child.parent_page = rootPg + 1;
+                    file.seekp(idx * pgSize, ios::beg);
+                    file.write(reinterpret_cast<char*>(&child), pgSize);
                 }
             }
+                
+            npages += 1;
+            rootPg = npages - 1;
+            file.seekp(rootPg * pgSize, ios::beg);
+            file.write(reinterpret_cast<char*>(&p), pgSize);
 
-        }
-
-        file.seekg(currPg * pgSize, ios::beg);
-        file.read(reinterpret_cast<char*>(&page), pgSize);
-        
-        //Find loc to insert 
-        int idx = 0;
-        while(idx < page.nentries){
-            if(strcmp(to_insert.title, page.entries[idx].title) < 0){ break; }
-            idx ++;
-        }
-
-        //PLain insert if there's room
-        if(page.nentries < pageMaxOcc){
-
-            ::insert(page.entries, &to_insert, sizeof(Item), idx, page.nentries);
-            ::insert(page.child_pages, &new_page, sizeof(int16_t), idx, page.nentries + 1);
-            page.nentries += 1;
-
-            file.seekp(currPg * pgSize, ios::beg);
-            file.write(reinterpret_cast<char*>(&page), pgSize);
-            file.close();
 
             return;
         }
 
-        //Else, divide and move up
+        //Insertion Loop
         else{
-            //Create new left 
-            Page new_left;
-            new_left.nentries = (int)(pageMaxOcc / 2);
-            for(int i = 0; i < page.nentries; i ++){
-                new_left.entries[i] = page.entries[i];
-            }
-            for(int i = 0; i < page.nentries + 1; i ++){
-                new_left.child_pages[i] = page.child_pages[i];
-            }
-            new_left.parent_page = page.parent_page;
 
+            Page p;
+            file.seekg(page_toadd * pgSize, ios::beg);
+            file.read(reinterpret_cast<char*>(&p), pgSize);
 
-            //Insert into left if it fits
-            if(idx < new_left.nentries){
-                ::insert(new_left.entries, &to_insert, sizeof(Item), idx, new_left.nentries);
-                ::insert(new_left.child_pages, &new_page, sizeof(int16_t), idx, new_left.nentries + 1);
+            //Locating location to write to
+            int idx = 0;
+            while(idx < p.nentries){
+                if(strcmp(
+                    toinsert.title, p.entries[idx].title
+                ) < 0){
+                    break;
+                }
+                idx ++;
             }
 
-            //Write left
-            npages += 1;
-            file.seekp(npages * pgSize, ios::beg);
-            file.write(reinterpret_cast<char*>(&new_left), pgSize);
+            //Case in which there's room to insert here
+            if(p.nentries < pageMaxOcc){
 
-            //Move elements in the right
-            for(int x = new_left.nentries; x < page.nentries; x ++){
-                page.entries[x - new_left.nentries] = page.entries[x];
-            }
-            for(int x = new_left.nentries + 1; x < page.nentries + 1; x ++){
-                page.child_pages[x - new_left.nentries - 1] = page.child_pages[x];
-            }
 
-            page.nentries = page.nentries - new_left.nentries;
-
-            //Insert into the right if needed
-            if(idx > new_left.nentries){
-                idx -= new_left.nentries;
-                //cout << "Inserting at " << idx << endl;
-                ::insert(page.entries, &to_insert, sizeof(Item), idx, new_left.nentries);
-                ::insert(new_left.child_pages, &new_page, sizeof(int16_t), idx, new_left.nentries + 1);
+                //TDOO -> Go back and fix this indexing (or just check if it works)
+                ::insert(p.entries, &toinsert, sizeof(toinsert), idx, p.nentries);
+                ::insert(p.child_pages, &newright, sizeof(newright), idx+1, p.nentries+1); 
+                p.nentries += 1;
+                
+                file.seekg(page_toadd * pgSize, ios::beg);
+                file.write(reinterpret_cast<char*>(&p), pgSize);
+                return;
             }
 
-            //(Re)Write right and update loop vars
-            file.seekp(currPg * pgSize, ios::beg);
-            file.write(reinterpret_cast<char*>(&page), pgSize);
+            //If there's not enough room to insert
+            else{
 
-            child_pref = currPg; //For changing ref if needed
-            currPg = page.parent_page;
-            new_page = npages;
+                //Index left_size is what is passed up
+                int left_size = (int)(p.nentries / 2);
+
+                cout << "LSize = " << left_size << ", idx = " << idx << endl;
+                cout << "Entries: "; for(int i = 0; i < p.nentries; i ++){ cout << p.entries[i].title << ", "; } cout << endl;
+
+
+                //Create new page for right + write
+                Page new_right;
+                new_right.parent_page = p.parent_page;
+                new_right.nentries = (uint16_t)(p.nentries - left_size - 1);
+
+                for(int idx_left = left_size+1; idx_left < p.nentries; idx_left ++){ 
+                    new_right.entries[idx_left-left_size-1] = p.entries[idx_left]; 
+                }
+
+                for(int idx_left = left_size+1; idx_left <= p.nentries; idx_left ++){ 
+                    new_right.child_pages[idx_left-left_size-1] = p.child_pages[idx_left]; 
+                }
+
+
+                if(idx > left_size){
+                    int nidx = idx-left_size-1;
+                    ::insert(new_right.entries, &toinsert, sizeof(toinsert), nidx, new_right.nentries);
+                    ::insert(new_right.child_pages, &newright, sizeof(newright), nidx+1, new_right.nentries+1);
+                    new_right.nentries += 1;
+                }
+
+                npages += 1;
+                file.seekp((npages-1) * pgSize, ios::beg);
+                file.write(reinterpret_cast<char*>(&new_right), pgSize);
+                newright = npages-1;
+
+                //Edit left (doesn't change raw entries, but shouldn't need to)
+                p.nentries = left_size + 1;
+                if(idx <= left_size){
+                    ::insert(p.entries, &toinsert, sizeof(toinsert), idx, left_size);
+                    ::insert(p.child_pages, &newright, sizeof(newright), idx+1, left_size+1); 
+                    p.nentries += 1;
+                }
+                p.nentries -= 1;
+
+                file.seekp(page_toadd * pgSize, ios::beg);
+                file.write(reinterpret_cast<char*>(&p), pgSize);
+                newleft = page_toadd;
+
+                cout << "Left @ " << newleft <<  ":"; for(int i = 0; i < p.nentries; i ++){ cout << p.entries[i].title << ", "; } cout << endl;
+                cout << "Right @ " << newright <<  ":"; for(int i = 0; i < new_right.nentries; i ++){ cout << new_right.entries[i].title << ", "; } cout << endl;
+
+                //Recurse
+                page_toadd = p.parent_page;
+                toinsert = p.entries[left_size];
+                cout << "Moving up " << toinsert.title << endl;
+                cout << "LSize = " << left_size << ", idx = " << idx << endl;
+                cout << "Parent = " << page_toadd << ", nleft = " << newleft << ", nright = " << newright << endl << endl;
+
+            }
         }
 
     }
 
+ 
 }
 
 
@@ -233,21 +260,19 @@ int main(){
     DBClient cli;
     cli.raw_clear();
 
-    Page p1 = {};
-    p1.nentries = 2;
-    for(int i = 0; i < 4; i ++){
-        p1.child_pages[i] = -1;
-    }
-    p1.entries[0] = {"a"};
-    p1.entries[1] = {"c"};
-    p1.parent_page = -1;
-    
-
-    cli.raw_insert(p1);
     cli.insert({ "b" });
     cli.insert({ "d" });
+    cli.insert({ "a" });
 
+    cli.insert({ "c" });
 
+    cli.raw_page_print();
+    return 0;
+
+    cli.insert({ "f" });
+    cli.raw_page_print();
+
+    cli.insert({ "g" });
 
     cli.raw_page_print();
 
