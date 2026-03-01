@@ -266,11 +266,9 @@ int main(){
 
     cli.insert({ "c" });
 
-    cli.raw_page_print();
-    return 0;
-
     cli.insert({ "f" });
     cli.raw_page_print();
+    
 
     cli.insert({ "g" });
 
