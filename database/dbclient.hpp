@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstring>
 #include <algorithm>
+#include <optional>
 
 using namespace std;
 
@@ -61,7 +62,7 @@ class DBClient{
 
         DBClient();
 
-        Item search(string query) const;
+        optional<Item> search(string query) const;
         void insert(Item i);
         void raw_clear();
         void raw_insert(Page page);

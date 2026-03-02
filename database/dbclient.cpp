@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstring>
 #include <algorithm>
+#include <optional>
 #include "dbclient.hpp"
 
 using namespace std;
@@ -247,6 +248,57 @@ void DBClient::insert(Item i){
  
 }
 
+//B-tree search
+optional<Item> DBClient::search(string query) const {
+    
+    fstream file("shoe.db", ios::in | ios::out | ios::binary);
+    int16_t currPg = rootPg;
+
+    optional<Item> last_valid = nullopt;
+
+    while(currPg != -1){
+        Page p;
+        file.seekg(currPg * pgSize, ios::beg);
+        file.read(reinterpret_cast<char*>(&p), pgSize);
+        
+        //Loop through children
+        for(int i = 0; i < p.nentries; i ++){
+            Item child_contender = p.entries[i];
+            int cmp_res = strcmp(query.c_str(), child_contender.title);
+
+            //If this is equal, return
+            if(cmp_res == 0){
+                last_valid = child_contender; 
+                currPg = -1;
+                break;
+            }
+
+            //Else if smaller, either traverse or stop here
+            else if(cmp_res < 0){
+                if(p.child_pages[i] != -1){ 
+                    currPg = p.child_pages[i]; 
+                }
+                else{
+                    currPg = -1; //Will deliver last/closest one (TODO: give closest comp alpha)
+                }
+                break;
+            }
+
+            //If still here (moving on), set last_valid
+            last_valid = p.entries[i];
+            
+        }
+
+        //If we're bigger than all, go to the end + set last valid to largest/closest
+        last_valid = p.entries[p.nentries - 1];
+        currPg = p.child_pages[p.nentries];
+
+    }
+
+    return last_valid;
+
+}
+
 
 
 int main(){
@@ -257,8 +309,6 @@ int main(){
     cli.insert({ "d" });
     cli.insert({ "a" });
     cli.insert({ "c" });
-    cli.raw_page_print();
-
     cli.insert({ "f" });
     cli.insert({ "g" });
     cli.raw_page_print();
