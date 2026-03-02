@@ -260,6 +260,8 @@ optional<Item> DBClient::search(string query) const {
         Page p;
         file.seekg(currPg * pgSize, ios::beg);
         file.read(reinterpret_cast<char*>(&p), pgSize);
+
+        int currPgBef = currPg;
         
         //Loop through children
         for(int i = 0; i < p.nentries; i ++){
@@ -268,9 +270,7 @@ optional<Item> DBClient::search(string query) const {
 
             //If this is equal, return
             if(cmp_res == 0){
-                last_valid = child_contender; 
-                currPg = -1;
-                break;
+                return child_contender;
             }
 
             //Else if smaller, either traverse or stop here
@@ -279,19 +279,30 @@ optional<Item> DBClient::search(string query) const {
                     currPg = p.child_pages[i]; 
                 }
                 else{
-                    currPg = -1; //Will deliver last/closest one (TODO: give closest comp alpha)
+                    //Super soft middle comparison
+                    if( last_valid != nullopt &&  ( 
+                        strcmp(query.c_str(), last_valid.value().title) < -1*cmp_res |
+                        query[0] == last_valid.value().title[0]
+                    )){
+                        return last_valid;
+                    }
+                    return child_contender;
                 }
                 break;
             }
 
             //If still here (moving on), set last_valid
-            last_valid = p.entries[i];
+            else{ last_valid = p.entries[i]; }
+
             
         }
 
-        //If we're bigger than all, go to the end + set last valid to largest/closest
-        last_valid = p.entries[p.nentries - 1];
-        currPg = p.child_pages[p.nentries];
+
+        //If no change, go to rightmost
+        if(currPg == currPgBef){
+            last_valid = p.entries[p.nentries - 1];
+            currPg = p.child_pages[p.nentries];
+        }
 
     }
 
@@ -312,6 +323,15 @@ int main(){
     cli.insert({ "f" });
     cli.insert({ "g" });
     cli.raw_page_print();
+
+    string query = "fetus";
+    optional<Item> x = cli.search(query);
+    if(x == nullopt){
+        cout << "Search failed" << endl;
+    }
+    else{
+        cout << "Found " << x.value().title << " when searching for " << query << endl;
+    }
 
 
     return 0;
