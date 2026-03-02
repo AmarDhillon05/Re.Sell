@@ -30,7 +30,7 @@ void insert(void* arr, void* item, size_t item_size, int idx, int arrsize) {
 DBClient::DBClient(){
     npages = 0; //This minus 1 = pointer to the most recent page 
     pageMinOcc = 1;
-    pageMaxOcc = 3;
+    pageMaxOcc = 4;
     rootPg = -1; //DNE
     pgSize = sizeof(Page); 
 }
@@ -123,6 +123,7 @@ void DBClient::insert(Item i){
     int16_t page_toadd = currPg;
     Item toinsert = i;
 
+
     //New root case: Add the new root + new pages raw and rewrite parents of previous, then return
     while(1){
         if(page_toadd == -1){
@@ -130,9 +131,13 @@ void DBClient::insert(Item i){
             Page p;
             p.nentries = 1;
             p.entries[0] = toinsert;
+            for(int i = 0; i <= pageMaxOcc; i ++){ p.child_pages[i] = -1; }
             p.child_pages[0] = newleft;
             p.child_pages[1] = newright;
             p.parent_page = -1;
+
+            npages += 1;
+            rootPg = npages - 1;
 
             int16_t children[2] = {newleft, newright};
             for(int16_t idx : children){
@@ -140,14 +145,12 @@ void DBClient::insert(Item i){
                     Page child;
                     file.seekg(idx * pgSize, ios::beg);
                     file.read(reinterpret_cast<char*>(&child), pgSize);
-                    child.parent_page = rootPg + 1;
+                    child.parent_page = rootPg;
                     file.seekp(idx * pgSize, ios::beg);
                     file.write(reinterpret_cast<char*>(&child), pgSize);
                 }
             }
-                
-            npages += 1;
-            rootPg = npages - 1;
+            
             file.seekp(rootPg * pgSize, ios::beg);
             file.write(reinterpret_cast<char*>(&p), pgSize);
 
@@ -193,10 +196,6 @@ void DBClient::insert(Item i){
                 //Index left_size is what is passed up
                 int left_size = (int)(p.nentries / 2);
 
-                cout << "LSize = " << left_size << ", idx = " << idx << endl;
-                cout << "Entries: "; for(int i = 0; i < p.nentries; i ++){ cout << p.entries[i].title << ", "; } cout << endl;
-
-
                 //Create new page for right + write
                 Page new_right;
                 new_right.parent_page = p.parent_page;
@@ -236,15 +235,9 @@ void DBClient::insert(Item i){
                 file.write(reinterpret_cast<char*>(&p), pgSize);
                 newleft = page_toadd;
 
-                cout << "Left @ " << newleft <<  ":"; for(int i = 0; i < p.nentries; i ++){ cout << p.entries[i].title << ", "; } cout << endl;
-                cout << "Right @ " << newright <<  ":"; for(int i = 0; i < new_right.nentries; i ++){ cout << new_right.entries[i].title << ", "; } cout << endl;
-
                 //Recurse
                 page_toadd = p.parent_page;
                 toinsert = p.entries[left_size];
-                cout << "Moving up " << toinsert.title << endl;
-                cout << "LSize = " << left_size << ", idx = " << idx << endl;
-                cout << "Parent = " << page_toadd << ", nleft = " << newleft << ", nright = " << newright << endl << endl;
 
             }
         }
@@ -263,15 +256,11 @@ int main(){
     cli.insert({ "b" });
     cli.insert({ "d" });
     cli.insert({ "a" });
-
     cli.insert({ "c" });
+    cli.raw_page_print();
 
     cli.insert({ "f" });
-    cli.raw_page_print();
-    
-
     cli.insert({ "g" });
-
     cli.raw_page_print();
 
 

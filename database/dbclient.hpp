@@ -17,8 +17,8 @@ struct Item {
 
 struct Page {
     uint16_t nentries;
-    Item entries[3];
-    int16_t child_pages[4];
+    Item entries[128];
+    int16_t child_pages[128];
     int16_t parent_page;
 };
 
