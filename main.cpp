@@ -1,5 +1,7 @@
 #include "utils/dotenv.hpp"
 #include "auth/auth.hpp"
+#include "database/dbclient.hpp"
+#include "clients/kicksdb_client.hpp"
 #include <iostream>
 #include <unordered_map>
 

@@ -4,6 +4,7 @@
 #include <cstring>
 #include <algorithm>
 #include <optional>
+#include <string.h>
 
 using namespace std;
 
@@ -52,6 +53,7 @@ void insert(void* arr, void* item, size_t item_size, int idx, int arrsize);
 class DBClient{
 
     private:
+        string fpath;
         int npages;
         int pageMinOcc;
         int pageMaxOcc;
@@ -60,7 +62,7 @@ class DBClient{
 
     public:
 
-        DBClient();
+        DBClient(string path);
 
         optional<Item> search(string query) const;
         void insert(Item i);

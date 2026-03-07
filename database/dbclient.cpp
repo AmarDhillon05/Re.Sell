@@ -28,7 +28,8 @@ void insert(void* arr, void* item, size_t item_size, int idx, int arrsize) {
 }
 
 //Implementd DBC methods
-DBClient::DBClient(){
+DBClient::DBClient(string path){
+    fpath = path;
     npages = 0; //This minus 1 = pointer to the most recent page 
     pageMinOcc = 1;
     pageMaxOcc = 4;
@@ -40,7 +41,7 @@ DBClient::DBClient(){
 
 //Straight file read methods for debugging
 void DBClient::raw_insert(Page page){
-    fstream file("shoe.db", ios::binary | ios::out);
+    fstream file(fpath, ios::binary | ios::out);
     file.seekg(npages*pgSize, ios::beg);
 
     file.write(reinterpret_cast<char*>(&page), pgSize);
@@ -51,7 +52,7 @@ void DBClient::raw_insert(Page page){
 
 
 void DBClient::raw_page_print(){
-    fstream file("shoe.db", ios::binary | ios::in);
+    fstream file(fpath, ios::binary | ios::in);
     Page page;
 
     cout << "\n\nRoot = " << rootPg << endl;
@@ -83,7 +84,7 @@ void DBClient::raw_page_print(){
 }
 
 void DBClient::raw_clear(){
-    fstream file("shoe.db", ios::out | ios::trunc);
+    fstream file(fpath, ios::out | ios::trunc);
     file.close();
 }
 
@@ -92,7 +93,7 @@ void DBClient::raw_clear(){
 void DBClient::insert(Item i){
 
 
-    fstream file("shoe.db", ios::binary | ios::in | ios::out);
+    fstream file(fpath, ios::binary | ios::in | ios::out);
 
     int16_t currPg = rootPg;
 
@@ -251,7 +252,7 @@ void DBClient::insert(Item i){
 //B-tree search
 optional<Item> DBClient::search(string query) const {
     
-    fstream file("shoe.db", ios::in | ios::out | ios::binary);
+    fstream file(fpath, ios::in | ios::out | ios::binary);
     int16_t currPg = rootPg;
 
     optional<Item> last_valid = nullopt;
@@ -312,27 +313,3 @@ optional<Item> DBClient::search(string query) const {
 
 
 
-int main(){
-    DBClient cli;
-    cli.raw_clear();
-
-    cli.insert({ "b" });
-    cli.insert({ "d" });
-    cli.insert({ "a" });
-    cli.insert({ "c" });
-    cli.insert({ "f" });
-    cli.insert({ "g" });
-    cli.raw_page_print();
-
-    string query = "fetus";
-    optional<Item> x = cli.search(query);
-    if(x == nullopt){
-        cout << "Search failed" << endl;
-    }
-    else{
-        cout << "Found " << x.value().title << " when searching for " << query << endl;
-    }
-
-
-    return 0;
-}
