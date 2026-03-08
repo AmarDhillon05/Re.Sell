@@ -1,5 +1,8 @@
-#include "utils/dotenv.hpp"
-#include "auth/auth.hpp"
+#define RED "\033[31m"
+#define GREEN "\033[32m"
+#define YELLOW "\033[33m"
+#define RESET "\033[0m"
+
 #include "database/dbclient.hpp"
 #include "clients/kicksdb_client.hpp"
 #include <iostream>
@@ -10,7 +13,9 @@ using namespace std;
 
 int main(){
     
-    unordered_map<string, string> env = getenv();
+    //Client init
+    KicksDB_Client kcli;
+    cout << kcli.search("Air Jordan 1") << endl;
     
     return 0;
 }

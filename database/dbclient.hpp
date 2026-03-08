@@ -25,6 +25,7 @@ struct Page {
 };
 
 //Print page
+/*
 void print_page(Page page){
 
     for(int i = 0; i < 50; i ++){ cout << "*"; }
@@ -43,6 +44,7 @@ void print_page(Page page){
     for(int i = 0; i < 50; i ++){ cout << "*"; }
 
 }
+*/
 
 
 //Helper to insert
