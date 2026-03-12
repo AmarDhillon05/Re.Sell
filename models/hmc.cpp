@@ -3,6 +3,7 @@
 #include <random>
 #include <cstring>
 #include <cmath>
+#include <utils.hpp>
 
 using namespace std;
 
@@ -18,25 +19,26 @@ float* hmc(float* data, int data_size, int iters, float leapfrog_e, float leapfr
     mt19937 rng(rd());
 
     //Sampling from a modified normal distribution (mu, theta)
-    float M[2][2] = {{1, 0}, {0, 1}};
+    const int n_params = 2;
+    float M[n_params * n_params] = {1, 0, 0, 1};
 
     //Params[-1] represents the most recent generated parameter set
-    float params[iters+1][2];
-    float tmp[2] = {0.0f, 1.0f};
-    memcpy(params[0], tmp, 2 * sizeof(float));
+    float *params = (float*)malloc((iters+1) * n_params * sizeof(float));
+    float tmp[n_params] = {0.0f, 1.0f};
+    memcpy(params, tmp, n_params * sizeof(float));
 
     int i = 0;
     while(i < iters){
 
         //Sampling momentum
-        normal_distribution<float> mu_sampler(0, M[0][0]); 
-        normal_distribution<float> theta_sampler(0, M[1][1]);
+        normal_distribution<float> mu_sampler(0, M[0]); 
+        normal_distribution<float> theta_sampler(0, M[3]);
         float sample_mu = mu_sampler(rng);
         float sample_theta = theta_sampler(rng);
-        float rho[2] = { sample_mu, sample_theta };
+        float rho[n_params] = { sample_mu, sample_theta };
 
         //Leapfrog iterations
-        float current_params[2] = { params[i+1][0], params[i+1][1] };
+        float current_params[n_params] = { params[n_params * (i + 1)], params[n_params * (i + 1) + 1] };
 
         for(int j = 0; j < leapfrog_steps; j ++){
 
@@ -49,6 +51,8 @@ float* hmc(float* data, int data_size, int iters, float leapfrog_e, float leapfr
             dv_dt -= data_size * prior_func_term(current_params);
 
             //Actual leapfrog steps
+            for(int k = 0; k < n_params; k ++){ rho[k] -= (leapfrog_e/2)*dv_dt; }
+         
 
         }
 
@@ -56,7 +60,7 @@ float* hmc(float* data, int data_size, int iters, float leapfrog_e, float leapfr
         
     }
 
-    return *params + (2 * sizeof(float));
+    return params //+ (2 * sizeof(float)); //Free when done 
 }
 
 

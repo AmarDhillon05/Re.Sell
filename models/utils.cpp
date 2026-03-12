@@ -7,38 +7,99 @@
 
 using namespace std;
 
-//X = n rows, y = n entries in each row
-
 //Transpose
-void transpose(float** mat, int x, int y, float** tofill){
-    float trans[y][x];
+float* transpose(float* mat, int x, int y){
+    float* tf = (float*)malloc(x * y * sizeof(float));
+
     for(int i = 0; i < x; i ++){
         for(int j = 0; j < y; j ++){
-            tofill[i][j] = mat[j][i];
+            tf[j * y + i] = mat[i * x + j];
         }
     }
+
+    return tf;
 }
 
 //Simple MMul
-void mmul(float** mat1, float** mat2, int x1, int y1, int x2, int y2, float** tofill){
+float* mmul(float* mat1, float* mat2, int x1, int y1, int x2, int y2){
     if(y1 != x2){
         throw invalid_argument("Matrix dimensions " + to_string(x2) + " and " + to_string(y2) + " do not match");
     }
-    //tofill needs dims x1, y2
+
+    float* tf = (float*)malloc(x1 * y2 * sizeof(float));
+
     for(int i = 0; i < x1; i++){
         for(int j = 0; j < y2; j++){
             float sum = 0;
             for(int offset = 0; offset < y1; offset++){
-                sum += mat1[i][offset] + mat2[offset][j];
+                cout << mat1[i * x1 + offset] * mat2[offset * x2 + j] << " + ";
+                sum += mat1[i * x1 + offset] * mat2[offset * x2 + j];
+
             }
-            tofill[i][j] = sum;
+            tf[i * x1 + j] = sum;
         }
     }
+
+    return tf;
 }
 
+
+//Simple Madd
+float* madd(float* mat1, float* mat2, int x, int y){
+
+    float *tf = (float*)malloc(x * y * sizeof(float));
+
+    for(int i = 0; i < x; i ++){
+        for(int j = 0; j < x; j ++){
+            tf[i * x + j] = mat1[i * x + j] + mat2[i * x + j];
+        }
+    }
+
+    return tf;
+}
+
+
+//Print matrix
+void matprint(float* mat, int x, int y){
+    cout << "[" << endl;
+    for(int i = 0; i < x; i ++){
+        cout << "   [";
+        for(int j = 0; j < y; j ++){
+            cout << mat[i * x + j] << ", ";
+        }
+        cout << "], " << endl;
+    }
+    cout << "]" << endl;
+}
 
 /*
 
 [[1, 2, 3, 4, 5]] [[1], [2], [3], [4], [5]]
+
+*/
+
+
+/*
+
+int main(){
+
+    float m1[] = {2, 0, 1, 3, 5, 6};
+    float* m1trans = transpose(m1, 2, 3);
+    matprint(m1, 2, 3);
+    matprint(m1trans, 3, 2);
+    
+    float* prod = mmul(m1, m1trans, 2, 3, 3, 2);
+    matprint(prod, 2, 2);
+
+    float x2[] = {2, -1, 9, -4};
+    float* add = madd(prod, x2, 2, 2);
+    matprint(add, 2, 2);
+
+    free(prod);
+    free(m1trans);
+
+    return 0;
+}
+
 
 */
