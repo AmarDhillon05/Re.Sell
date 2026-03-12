@@ -21,3 +21,9 @@ float* madd(float* mat1, float* mat2, int x, int y);
 
 //Mprint 
 void matprint(float* mat, int x, int y);
+
+
+//Mean + Std
+float mean(float* mat, int len);
+
+float stdev(float* mat, int len);

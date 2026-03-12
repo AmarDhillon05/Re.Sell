@@ -23,7 +23,7 @@ float* transpose(float* mat, int x, int y){
 //Simple MMul
 float* mmul(float* mat1, float* mat2, int x1, int y1, int x2, int y2){
     if(y1 != x2){
-        throw invalid_argument("Matrix dimensions " + to_string(x2) + " and " + to_string(y2) + " do not match");
+        throw invalid_argument("Matrix dimensions " + to_string(x2) + " and " + to_string(y1) + " do not match");
     }
 
     float* tf = (float*)malloc(x1 * y2 * sizeof(float));
@@ -32,7 +32,6 @@ float* mmul(float* mat1, float* mat2, int x1, int y1, int x2, int y2){
         for(int j = 0; j < y2; j++){
             float sum = 0;
             for(int offset = 0; offset < y1; offset++){
-                cout << mat1[i * x1 + offset] * mat2[offset * x2 + j] << " + ";
                 sum += mat1[i * x1 + offset] * mat2[offset * x2 + j];
 
             }
@@ -42,7 +41,6 @@ float* mmul(float* mat1, float* mat2, int x1, int y1, int x2, int y2){
 
     return tf;
 }
-
 
 //Simple Madd
 float* madd(float* mat1, float* mat2, int x, int y){
@@ -58,7 +56,6 @@ float* madd(float* mat1, float* mat2, int x, int y){
     return tf;
 }
 
-
 //Print matrix
 void matprint(float* mat, int x, int y){
     cout << "[" << endl;
@@ -72,12 +69,23 @@ void matprint(float* mat, int x, int y){
     cout << "]" << endl;
 }
 
-/*
 
-[[1, 2, 3, 4, 5]] [[1], [2], [3], [4], [5]]
+//Mean + Std
+float mean(float* mat, int len){
+    float sum = 0;
+    for(int i = 0; i < len; i ++){ sum += mat[i]; }
+    return sum;
+}
 
-*/
-
+float stdev(float* mat, int len){
+    float mu = mean(mat, len);
+    float theta = 0;
+    for(int i = 0; i < len; i ++){
+        float diff = mat[i] - mu;
+        theta += diff * diff;
+    }
+    return theta;
+}
 
 /*
 
