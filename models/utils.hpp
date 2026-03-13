@@ -22,6 +22,12 @@ float* madd(float* mat1, float* mat2, int x, int y);
 //Mprint 
 void matprint(float* mat, int x, int y);
 
+//Ewise mult
+void emul(float* mat, int tsize, float el);
+
+//2D inverse (for simplicity)
+float* twodinv(float* mat);
+
 
 //Mean + Std
 float mean(float* mat, int len);

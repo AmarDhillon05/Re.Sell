@@ -69,6 +69,29 @@ void matprint(float* mat, int x, int y){
     cout << "]" << endl;
 }
 
+//Element wise mul
+void emul(float* mat, int tsize, float el){
+    for(int i = 0; i < tsize; i ++){
+        mat[i] *= el;
+    }
+}
+
+
+//2d inv 
+float* twodinv(float* mat){
+    float *inv = (float*)malloc(4 * sizeof(float));
+
+    float a = mat[0]; float b = mat[1]; float c = mat[2]; float d = mat[3];
+    float det = 1 / (a*d - b*c);
+    inv[0] = det * d;
+    inv[1] = det * b * -1;
+    inv[2] = det * c * -1;
+    inv[3] = det * a;
+
+    return inv;
+}
+
+
 
 //Mean + Std
 float mean(float* mat, int len){
