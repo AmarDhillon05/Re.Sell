@@ -2,7 +2,6 @@
 #include <fstream>
 #include <cstdint>
 #include <cstring>
-#include <algorithm>
 #include <optional>
 #include "dbclient.hpp"
 
