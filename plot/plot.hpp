@@ -21,6 +21,8 @@ class Plotbot{
         int ysz;
         int ymin; 
         int ymax;
+        int yscl;
+        int xscl;
 
         int realPtAmt;
         int spaceTaken;
