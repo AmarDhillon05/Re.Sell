@@ -1,232 +1,206 @@
 #include <iostream>
+#include <cstdlib>
 #include <cstring>
 #include <cmath>
-#include <unordered_map>
-#include <unordered_set>
+#include <string>
+#include <vector>
 #include <algorithm>
 #include "plot.hpp"
-#include "utils.hpp"
 
 
 using namespace std;
 
+namespace {
+
+    //Short, fixed width axis label (e.g. "142.5")
+    string axis_label(float v){
+        char buf[32];
+        if(fabs(v) >= 1000.0f || (v != 0.0f && fabs(v) < 0.01f)){
+            snprintf(buf, sizeof(buf), "%.4g", v);
+        } else {
+            snprintf(buf, sizeof(buf), "%.2f", v);
+        }
+        return string(buf);
+    }
+
+}
+
 
 Plotbot::Plotbot(int xszv, int yszv){
-    xsz = xszv; 
-    ysz = yszv;
+    xsz = max(2, xszv);
+    ysz = max(2, yszv);
 
-    //Changes graph scales when lower entries are found
-    ymin = 0;
-    ymax = ysz;
-    yscl = 1;
+    ymin = 0.0f;
+    ymax = 1.0f;
+    yscl = 1.0f;
     xscl = 1;
 
-    //Auto scaling array of points (inits to 0)
-    //Auto rounded as well, float is moreso for expanded method use
-    points = (float*)malloc(sizeof(int) * xsz);
-    for(int i = 0; i < xsz; i ++){ points[i] = 0; }
+    //One accumulator per column. calloc so a fresh column never starts on garbage.
+    sums = (float*)calloc((size_t)xsz, sizeof(float));
+    counts = (int*)calloc((size_t)xsz, sizeof(int));
 
-    realPtAmt = 1;
     spaceTaken = 0;
+    totalPts = 0;
 }
 
 Plotbot::~Plotbot(){
-    free(points);
+    free(sums);
+    free(counts);
 }
 
 
-
-//Plot rows
-void Plotbot::plot(){
-
-    //Indent (includes little dash)
-    int yminSpace = (int)log10(ymin) + 1;
-    if(ymin == 0){ yminSpace = 1; }
-    int ymaxSpace = (int)log10(ymax) + 1;
-    int indent = max(yminSpace, ymaxSpace); 
-
-    //Top y
-    for(int i = 0; i < indent - ymaxSpace; i ++){ cout << "#"; }
-    cout << ymax << "-";
-
-    //First data row (no added indent);
-    for(int j = 0; j < xsz; j ++){ 
-        char toPrint = ' ';
-        //if((int)((ymax - points[j]) / yscl) == ymax){
-        if(abs( points[j] - ymax ) < yscl){
-            toPrint = '*'; 
-        }
-        cout << toPrint;
-    }
-    cout << endl;
-
-    //2nd to 2nd to last
-    for(int i = 1; i < ysz - 1; i ++){
-        for(int j = 0; j < indent; j ++){ cout << "#"; }
-        for(int j = 0; j < xsz; j ++){ 
-            char toPrint = ' ';
-            //if((int)((ymax - points[j]) / yscl) == i){
-            if(abs( points[j] - (ymax - i*yscl) ) < yscl){
-                toPrint = '*';
-            }
-            cout << toPrint;
-        }
-        cout << endl;
-    }
-    
-    //Bottom y
-    for(int i = 0; i < indent - yminSpace; i ++){ cout << " "; }
-    cout << ymin << "-";
-
-    //Last data row (no added indent);
-    for(int j = 0; j < xsz; j ++){ 
-        char toPrint = ' ';
-        if(abs( points[j] - ymin ) < yscl){
-            toPrint = '*';
-        }
-        cout << toPrint;
-    }
-    cout << endl;
-
-    //Bottom x ticks
-    for(int i = 0; i < indent; i ++){ cout << "#"; }
-    cout << "|";
-    for(int i = 0; i < xsz - 1; i ++){ cout << "#"; }
-    cout << "|" << endl;
-
-    //Xticks
-    int xindent = (int)log10(xsz * xscl);
-    for(int i = 0; i < indent; i ++){ cout << " "; }
-    cout << '0';
-    for(int i = 0; i < xsz - xindent; i ++){ cout << " "; }
-    cout << xsz * xscl;
-    
-    cout << endl;
-
-
+void Plotbot::clear(){
+    memset(sums, 0, (size_t)xsz * sizeof(float));
+    memset(counts, 0, (size_t)xsz * sizeof(int));
+    spaceTaken = 0;
+    totalPts = 0;
+    xscl = 1;
+    ymin = 0.0f; ymax = 1.0f; yscl = 1.0f;
 }
 
 
-//Edit rows 
-void Plotbot::append(float* data, int dsize){
+float Plotbot::value(int i) const {
+    if(i < 0 || i >= spaceTaken || counts[i] == 0){ return 0.0f; }
+    return sums[i] / (float)counts[i];
+}
 
 
-    //Scaling values to fit range 
-    float data_min = minof(data, dsize); 
-    float data_max = maxof(data, dsize);
-    int oymax = ymax; int oymin = ymin;
-    ymax = max(data_max, (float)ymax);
-    ymin = min(data_min, (float)ymin);
+//Halves the number of occupied columns by merging neighbours pairwise,
+//which doubles how many raw samples one column stands for.
+void Plotbot::compress(){
+    for(int i = 0; i < xsz; i ++){
+        int src = 2 * i;
+        if(src >= spaceTaken){
+            sums[i] = 0.0f;
+            counts[i] = 0;
+            continue;
+        }
 
-    for(int i = 0; i < spaceTaken; i ++){
-        points[i] = (int)(ymin + (points[i] - oymin) * (ymax - ymin) / (oymax - oymin));
+        float s = sums[src];
+        int c = counts[src];
+        if(src + 1 < spaceTaken){
+            s += sums[src + 1];
+            c += counts[src + 1];
+        }
+        sums[i] = s;
+        counts[i] = c;
     }
+
+    spaceTaken = (spaceTaken + 1) / 2;
+    xscl *= 2;
+}
+
+
+//Y bounds always come from the data actually held, never from stale state
+void Plotbot::rescale_y(){
+    if(spaceTaken == 0){
+        ymin = 0.0f; ymax = 1.0f; yscl = 1.0f;
+        return;
+    }
+
+    float lo = value(0);
+    float hi = value(0);
+    for(int i = 1; i < spaceTaken; i ++){
+        lo = min(lo, value(i));
+        hi = max(hi, value(i));
+    }
+
+    //A flat series would give a zero height axis, so pad it out
+    if(hi - lo < 1e-6f){
+        float pad = max(1.0f, fabs(hi) * 0.05f);
+        lo -= pad;
+        hi += pad;
+    }
+
+    ymin = lo;
+    ymax = hi;
+
+    //Rows are 0..ysz-1, so the span is divided into ysz-1 gaps
+    yscl = (ymax - ymin) / (float)(ysz - 1);
+    if(!(yscl > 0.0f)){ yscl = 1.0f; }
+}
+
+
+//Edit rows
+void Plotbot::append(const float* data, int dsize){
+
+    if(data == nullptr || dsize <= 0){ return; }
 
     for(int i = 0; i < dsize; i ++){
-        data[i] = (int)(ymin + (data[i] - data_min) * (ymax - ymin) / (data_max - data_min));
-    }
 
-    //Fit y scale
-    yscl = (int)( (ymax - ymin) / ysz );
+        //Out of columns and the last one is already full -> merge to make room
+        if(spaceTaken == xsz && counts[spaceTaken - 1] >= xscl){
+            compress();
+        }
 
-
-    if(spaceTaken < xsz){
-    
-        //Scaling data if we're not full to fit current graph
-        int nCopyable = (int)(dsize / xscl);
-        int didx = 0;
-        while(spaceTaken < xsz){
-            if(didx >= dsize){ break; }
-            for(int i = 0; i < xscl; i ++){
-                points[spaceTaken - 1] += data[didx];
-                didx ++;
-            }
+        //Open a new column when there is no current one, or the current one is full
+        if(spaceTaken == 0 || counts[spaceTaken - 1] >= xscl){
+            sums[spaceTaken] = 0.0f;
+            counts[spaceTaken] = 0;
             spaceTaken += 1;
         }
 
-
-        if(didx < dsize){
-            float *toins = (float*) malloc(sizeof(float) * (dsize - didx));
-            memcpy(toins, data + didx, sizeof(float) * (dsize - didx));
-            Plotbot::append(toins, (dsize - didx));
-            free(toins);
-        }
-
+        //Store the real value; mapping to rows is the plotter's job, not the store's
+        sums[spaceTaken - 1] += data[i];
+        counts[spaceTaken - 1] += 1;
+        totalPts += 1;
     }
 
-    //If we have too much space/on recursive calls
-    else{
-        //Calculating size to compress to (undershot) (TODO - fix these)
-        float totalAmt = (spaceTaken * xscl) + dsize;
-        int xscl_new = ceil(totalAmt / (float) xsz);
-        int xsclDiff = ceil((float) xscl_new / (float) xscl);
-    
-        //Scaling existing data + new data 
-        float* tmp = (float*)malloc(sizeof(float) * xsz);
-
-        int tidx = -1;
-
-
-        for(int i = 0; i < xsz; i ++){
-            if(i % xsclDiff == 0){ tmp[tidx] /= xsclDiff; tidx ++; }
-            tmp[tidx] += points[i];
-        }
-
-        tmp[tidx] /= xsclDiff;
-
-        for(int i = 0; i < dsize; i ++){
-            if(i % xscl_new == 0){ tmp[tidx] /= xscl_new; tidx ++; }
-            tmp[tidx] += data[i];
-        }
-
-        tmp[tidx] /= xscl_new;
-
-        //Final copy + memmanage
-        mempcpy(points, tmp, sizeof(float) * xsz);
-        free(tmp);
-        xscl = xscl_new;
-        spaceTaken = tidx + 1;
-
-        
-    }
-
-
-}
-
-/*
-
-
-int main(){
-
-    Plotbot pb(150, 30);
-
-    int ssize = 60;
-    float start[ssize];
-    for(int i = 0; i < ssize; i ++){ start[i] = (i * 10) + 1; }
-
-    pb.append(start, ssize);
-
-    for(int i = 0; i < ssize; i ++){ start[i] = (i * 10) + 1; }
-    pb.append(start, ssize);
-
-    pb.plot();
-
-    ssize = 100;
-    float starttoo[ssize];
-    for(int i = 0; i < ssize; i ++){ starttoo[i] = i*i + 10; }
-    pb.append(starttoo, ssize);
-
-    pb.plot();
-
-    ssize = 100;
-    float start3[ssize];
-    for(int i = 0; i < ssize; i ++){ start3[i] = -150 + i*i*i; };
-    pb.append(start3, ssize);
-
-    pb.plot();
-
-    return 0;
+    rescale_y();
 }
 
 
-*/
+//Plot rows
+void Plotbot::plot(const string& title) const {
+
+    if(!title.empty()){ cout << title << endl; }
+
+    if(spaceTaken == 0){
+        cout << "(no data)" << endl;
+        return;
+    }
+
+    //Label gutter is as wide as the widest label we actually print
+    string top = axis_label(ymax);
+    string bot = axis_label(ymin);
+    int indent = (int)max(top.size(), bot.size());
+
+    //Rasterise into a grid first: one row per y step, marking the nearest row
+    //for each column instead of smearing a point across every row within yscl.
+    vector<string> grid((size_t)ysz, string((size_t)spaceTaken, ' '));
+    for(int j = 0; j < spaceTaken; j ++){
+        int row = (int)lround((ymax - value(j)) / yscl);
+        row = max(0, min(ysz - 1, row));
+        grid[(size_t)row][(size_t)j] = '*';
+    }
+
+    for(int i = 0; i < ysz; i ++){
+
+        //Only the first and last rows carry a number; the rest are blank gutter
+        string label;
+        if(i == 0){ label = top; }
+        else if(i == ysz - 1){ label = bot; }
+
+        for(int p = 0; p < indent - (int)label.size(); p ++){ cout << ' '; }
+        cout << label << (label.empty() ? ' ' : '-') << grid[(size_t)i] << endl;
+    }
+
+    //Bottom x axis
+    for(int i = 0; i < indent; i ++){ cout << ' '; }
+    cout << '|';
+    for(int i = 0; i < spaceTaken - 2; i ++){ cout << '-'; }
+    if(spaceTaken >= 2){ cout << '|'; }
+    cout << endl;
+
+    //Xticks: 0 on the left, the number of samples plotted on the right
+    string right = to_string(totalPts);
+    for(int i = 0; i < indent; i ++){ cout << ' '; }
+    cout << '0';
+    int gap = spaceTaken - 1 - (int)right.size();
+    for(int i = 0; i < gap; i ++){ cout << ' '; }
+    if(gap >= 0){ cout << right; }
+    cout << endl;
+
+    cout << "  " << spaceTaken << " cols @ " << xscl << " sample(s) each, "
+         << totalPts << " total" << endl;
+}

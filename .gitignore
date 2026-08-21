@@ -2,3 +2,10 @@
 tmp
 include
 TODO.md
+IMPROVEMENTS.md
+
+# build artifacts
+*.o
+a.out
+main
+hmc-demo

@@ -1,16 +1,17 @@
+#pragma once
+
 #include <iostream>
 #include <chrono>
 #include <random>
 #include <cstring>
 #include <cmath>
 
-#pragma once;
-
-
 using namespace std;
 
+//Convention: every matrix is row-major with `x` rows and `y` columns,
+//so element (i, j) lives at mat[i * y + j].
 
-//Transpose
+//Transpose (x by y -> y by x)
 float* transpose(float* mat, int x, int y);
 
 //Simple MMul
@@ -19,7 +20,7 @@ float* mmul(float* mat1, float* mat2, int x1, int y1, int x2, int y2);
 //Simple Madd
 float* madd(float* mat1, float* mat2, int x, int y);
 
-//Mprint 
+//Mprint
 void matprint(float* mat, int x, int y);
 
 //Ewise mult
