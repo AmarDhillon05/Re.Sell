@@ -22,18 +22,36 @@ OBJS     := $(SRCS:.cpp=.o)
 # Offline half of the project: no OpenSSL, no network
 OFFLINE_SRCS := database/dbclient.cpp plot/plot.cpp models/hmc.cpp models/utils.cpp
 
-.PHONY: all clean offline hmc-demo test
+.PHONY: all clean offline hmc-demo test deps
+.DEFAULT_GOAL := all
+
+# Single-header dependencies, fetched at pinned versions into include/ (gitignored)
+JSON_VERSION    := v3.11.3
+HTTPLIB_VERSION := v0.18.3
+JSON_HPP    := include/nlohmann/json.hpp
+HTTPLIB_H   := include/cpp-httplib/httplib.h
+DEPS        := $(JSON_HPP) $(HTTPLIB_H)
+
+deps: $(DEPS)
+
+$(JSON_HPP):
+	mkdir -p $(dir $@)
+	curl -sSfL -o $@ https://github.com/nlohmann/json/releases/download/$(JSON_VERSION)/json.hpp
+
+$(HTTPLIB_H):
+	mkdir -p $(dir $@)
+	curl -sSfL -o $@ https://raw.githubusercontent.com/yhirose/cpp-httplib/$(HTTPLIB_VERSION)/httplib.h
 
 all: $(BIN)
 
 $(BIN): $(OBJS)
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
 
-%.o: %.cpp
+%.o: %.cpp | $(DEPS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # Compile-check the parts that do not need OpenSSL installed
-offline:
+offline: | $(DEPS)
 	$(CXX) $(CXXFLAGS) -fsyntax-only $(OFFLINE_SRCS)
 	@echo "offline sources OK"
 
@@ -53,7 +71,7 @@ TEST_DEPS := database/dbclient.cpp \
 test: run_tests
 	./run_tests $(FILTER)
 
-run_tests: $(TEST_SRCS) $(TEST_DEPS)
+run_tests: $(TEST_SRCS) $(TEST_DEPS) | $(DEPS)
 	$(CXX) $(CXXFLAGS) -Itests $(TEST_SRCS) $(TEST_DEPS) -o run_tests
 
 # Standalone sampler check against a known distribution

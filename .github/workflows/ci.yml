@@ -1,0 +1,23 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install OpenSSL headers
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev
+
+      - name: Test
+        run: make test
+
+      - name: Build CLI
+        run: make -j"$(nproc)"
+
+      - name: Offline demo
+        run: ./main demo
